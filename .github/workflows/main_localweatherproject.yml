@@ -1,45 +1,56 @@
-name: Deploy to Azure Web App
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy Node.js app to Azure Web App - LocalWeatherProject
 
 # Trigger the workflow on push to 'main' branch
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
+  workflow_dispatch:
 
 # Define the jobs in the workflow
 jobs:
-  build-and-deploy:
+  build:
+    runs-on: windows-latest
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js version
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+
+      - name: npm install, build, and test
+        run: |
+          npm install
+          npm run build --if-present
+          npm run test --if-present
+      
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: .
+  deploy:
     runs-on: ubuntu-latest
-    steps:
+    needs: build
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     
-    # Checkout the repository
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    # Set up Node.js (if you're deploying a Node.js app)
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '16'
-
-    # Install dependencies (if you're using Node.js)
-    - name: Install dependencies
-      run: npm install
-
-    # Run tests (optional)
-    - name: Run tests
-      run: npm test
-
-    # Log in to Azure using the Azure credentials stored in GitHub Secrets
-    - name: 'Login to Azure'
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    # Deploy the app to Azure Web App
-    - name: 'Deploy to Azure Web App'
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: 'YOUR_AZURE_APP_NAME'       # Replace with your Azure Web App name
-        slot-name: 'production'               # Use 'production' for the default slot or other if you use deployment slots
-        package: '.'                           # Specify the directory where your app code is located
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+      
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'LocalWeatherProject'
+          slot-name: 'Production'
+          package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_7FE7CA2BF91243E68B8028DBE896152F }}
